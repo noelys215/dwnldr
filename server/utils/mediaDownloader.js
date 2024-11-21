@@ -1,8 +1,8 @@
-const fetch = require('node-fetch');
-const fs = require('fs');
-const path = require('path');
+import fetch from 'node-fetch';
+import fs from 'fs';
+import path from 'path';
 
-const DOWNLOAD_DIR = path.join(__dirname, '../../downloads/');
+const DOWNLOAD_DIR = path.join(process.cwd(), 'downloads/');
 
 // Ensure download directory exists
 if (!fs.existsSync(DOWNLOAD_DIR)) {
@@ -78,4 +78,4 @@ const downloadMedia = async (url, watermark) => {
 	throw new Error('No media found to download');
 };
 
-module.exports = { downloadMedia };
+export { downloadMedia };
