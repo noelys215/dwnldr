@@ -1,0 +1,72 @@
+body {
+	margin: 0;
+	font-family: Arial, sans-serif;
+	background-color: #f4f4f4;
+	color: #333;
+}
+
+.App {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	height: 100vh;
+}
+
+.downloader {
+	background: white;
+	padding: 20px;
+	border-radius: 10px;
+	box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+	text-align: center;
+	width: 90%;
+	max-width: 400px;
+}
+
+.title {
+	font-size: 24px;
+	margin-bottom: 20px;
+	color: #007bff;
+}
+
+.input-url {
+	width: 100%;
+	padding: 10px;
+	border: 1px solid #ddd;
+	border-radius: 5px;
+	margin-bottom: 10px;
+}
+
+.download-button {
+	width: 100%;
+	padding: 10px;
+	background-color: #007bff;
+	color: white;
+	border: none;
+	border-radius: 5px;
+	cursor: pointer;
+	font-size: 16px;
+}
+
+.download-button:disabled {
+	background-color: #ccc;
+	cursor: not-allowed;
+}
+
+.status {
+	margin-top: 10px;
+	font-size: 14px;
+}
+
+.download-link {
+	margin-top: 20px;
+}
+
+.download-link a {
+	color: #007bff;
+	text-decoration: none;
+	font-weight: bold;
+}
+
+.download-link a:hover {
+	text-decoration: underline;
+}

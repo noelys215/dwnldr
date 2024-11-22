@@ -1,66 +1,49 @@
 import React, { useState } from 'react';
-import { downloadMedia } from '../api/downloader';
-// import './Downloader.css'; // Optional CSS for styling
+import { downloadTikTokVideo } from '../api/downloader';
+import '../styles/Downloader.css';
 
 const Downloader: React.FC = () => {
 	const [url, setUrl] = useState('');
-	const [watermark, setWatermark] = useState(false);
-	const [status, setStatus] = useState<string | null>(null);
+	const [status, setStatus] = useState('');
 	const [downloadLink, setDownloadLink] = useState<string | null>(null);
 
+	// Handles the download process
 	const handleDownload = async () => {
 		setStatus('Downloading...');
 		setDownloadLink(null);
 
 		try {
-			const response = await downloadMedia(url, watermark);
-			setStatus('Download complete!');
-
-			// Create a download link for user
-			if (typeof response.filePath === 'string') {
-				setDownloadLink(`/downloads/${response.filePath}`);
-			} else {
-				// Multiple images (slideshow)
-				const links = response.filePath.map(
-					(path: string) => `<a href="/downloads/${path}" target="_blank">${path}</a>`
-				);
-				setDownloadLink(links.join('<br/>'));
-			}
-		} catch (error) {
+			const filePath = await downloadTikTokVideo(url);
+			setStatus('Download successful!');
+			setDownloadLink(`http://localhost:5000${filePath}`);
+		} catch (error: unknown) {
 			if (error instanceof Error) {
-				setStatus(`Error: ${error.message}`);
+				setStatus(error.message);
 			} else {
-				setStatus('An unknown error occurred');
+				setStatus('An unknown error occurred.');
 			}
 		}
 	};
 
 	return (
 		<div className="downloader">
-			<h1>DWNLDR</h1>
+			<h1 className="title">TikTok Video Downloader</h1>
 			<input
 				type="text"
-				placeholder="Enter video URL"
+				placeholder="Enter TikTok video URL"
 				value={url}
 				onChange={(e) => setUrl(e.target.value)}
 				className="input-url"
 			/>
-			<label>
-				<input
-					type="checkbox"
-					checked={watermark}
-					onChange={(e) => setWatermark(e.target.checked)}
-				/>
-				With Watermark
-			</label>
-			<button onClick={handleDownload} className="download-button">
+			<button onClick={handleDownload} className="download-button" disabled={!url}>
 				Download
 			</button>
-			{status && <p className="status">{status}</p>}
+			<p className="status">{status}</p>
 			{downloadLink && (
-				<div>
-					<h3>Download Link:</h3>
-					<div dangerouslySetInnerHTML={{ __html: downloadLink }} />
+				<div className="download-link">
+					<a href={downloadLink} target="_blank" rel="noopener noreferrer">
+						Click here to download your video
+					</a>
 				</div>
 			)}
 		</div>
