@@ -1,6 +1,6 @@
-import fetch from 'node-fetch';
 import fs from 'fs';
 import path from 'path';
+import { chromium } from 'playwright';
 
 const DOWNLOAD_DIR = path.join(process.cwd(), 'downloads/');
 
@@ -10,78 +10,53 @@ if (!fs.existsSync(DOWNLOAD_DIR)) {
 }
 
 /**
- * Utility function to add delay.
+ * Uses Playwright to scrape the direct video URL from TikTok.
+ * @param {string} tiktokUrl - The TikTok video URL.
+ * @returns {Promise<string>} - The direct video URL.
  */
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-/**
- * Utility function for retries with exponential backoff.
- */
-const fetchWithRetry = async (url, options, retries = 3, delayMs = 1000) => {
-	try {
-		const response = await fetch(url, options);
-		if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-		return response;
-	} catch (err) {
-		if (retries === 0) throw err;
-		console.log(`Retrying... Attempts left: ${retries}`);
-		await delay(delayMs);
-		return fetchWithRetry(url, options, retries - 1, delayMs * 2);
-	}
-};
-
-/**
- * Extracts the video ID from the TikTok URL.
- */
-const extractVideoId = (url) => {
-	const match = url.match(/\/video\/(\d+)/);
-	if (!match) throw new Error('Invalid TikTok URL format');
-	console.log(`Extracted Video ID: ${match[1]}`);
-	return match[1];
-};
-
-/**
- * Retrieves the video metadata from TikTok's API.
- */
-const getVideoMetadata = async (videoId) => {
-	const API_URL = `https://api22-normal-c-alisg.tiktokv.com/aweme/v1/feed/?aweme_id=${videoId}`;
-	const headers = {
-		'User-Agent':
+const scrapeVideoUrl = async (tiktokUrl) => {
+	const browser = await chromium.launch({ headless: false }); // Launch browser in non-headless mode for debugging
+	const context = await browser.newContext({
+		userAgent:
 			'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-		Referer: 'https://www.tiktok.com/',
-		Accept: 'application/json',
-	};
+		viewport: { width: 1280, height: 720 },
+		javaScriptEnabled: true,
+	});
 
-	const response = await fetch(API_URL, { headers });
-	const rawBody = await response.text();
+	const page = await context.newPage();
 
-	// Log response details for debugging
-	console.log(`Status Code: ${response.status}`);
-	console.log('Response Headers:', response.headers.raw());
-	console.log(`Response Body: ${rawBody}`);
-
-	if (!response.ok || !rawBody) {
-		throw new Error(
-			`TikTok API returned an empty or invalid response. Status: ${response.status}`
-		);
-	}
-
-	let data;
 	try {
-		data = JSON.parse(rawBody);
-	} catch (err) {
-		throw new Error('Failed to parse TikTok API response as JSON');
-	}
+		// Navigate to the TikTok URL
+		await page.goto(tiktokUrl, { waitUntil: 'networkidle' });
 
-	if (!data.aweme_list || data.aweme_list.length === 0) {
-		throw new Error('Video not found or unavailable');
-	}
+		// Log the page content to inspect the DOM structure
+		const pageContent = await page.content();
+		console.log(pageContent);
 
-	return data.aweme_list[0];
+		// Wait for the video element to load
+		await page.waitForSelector('video', { timeout: 15000 });
+
+		// Extract the video URL
+		const videoUrl = await page.evaluate(() => {
+			const videoElement = document.querySelector('video');
+			return videoElement ? videoElement.src : null;
+		});
+
+		if (!videoUrl) {
+			throw new Error('Failed to extract video URL from TikTok');
+		}
+
+		return videoUrl;
+	} finally {
+		await browser.close();
+	}
 };
 
 /**
- * Downloads the video file from the given URL.
+ * Downloads a video from a direct video URL.
+ * @param {string} videoUrl - The direct video URL.
+ * @param {string} videoId - The TikTok video ID for naming the file.
+ * @returns {Promise<string>} - The path to the downloaded video file.
  */
 const downloadVideo = async (videoUrl, videoId) => {
 	const fileName = `${videoId}.mp4`;
@@ -99,24 +74,20 @@ const downloadVideo = async (videoUrl, videoId) => {
 };
 
 /**
- * Main function to handle downloading TikTok videos without watermark.
+ * Main function to handle downloading TikTok videos.
+ * @param {string} url - The TikTok video URL.
+ * @returns {Promise<string>} - The path to the downloaded video file.
  */
 const downloadTikTokVideo = async (url) => {
 	try {
-		// Step 1: Extract video ID from URL
-		const videoId = extractVideoId(url);
+		// Use Playwright to scrape the video URL
+		const videoUrl = await scrapeVideoUrl(url);
 
-		// Step 2: Fetch video metadata
-		const videoData = await getVideoMetadata(videoId);
+		// Extract the video ID from the TikTok URL
+		const videoIdMatch = url.match(/\/video\/(\d+)/);
+		const videoId = videoIdMatch ? videoIdMatch[1] : Date.now().toString();
 
-		// Step 3: Get video URL without watermark
-		const playAddr = videoData.video.play_addr;
-		if (!playAddr || !playAddr.url_list || playAddr.url_list.length === 0) {
-			throw new Error('No downloadable video URL found');
-		}
-		const videoUrl = playAddr.url_list[0]; // URL without watermark
-
-		// Step 4: Download the video
+		// Download the video
 		return await downloadVideo(videoUrl, videoId);
 	} catch (error) {
 		throw new Error(`Error downloading TikTok video: ${error.message}`);
